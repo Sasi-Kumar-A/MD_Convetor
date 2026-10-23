@@ -1,0 +1,14 @@
+customtkinter>=6.0.0
+markitdown[all]>=0.1.9
+moviepy>=2.0.0
+pillow>=12.2.0
+requests
+beautifulsoup4
+pdfminer-six
+pdfplumber
+mammoth
+python-pptx
+openpyxl
+pydub
+speechrecognition
+youtube-transcript-api
