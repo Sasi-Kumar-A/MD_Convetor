@@ -16,11 +16,21 @@ Powered by **CustomTkinter** for a sleek modern UI and **Microsoft MarkItDown** 
    - **Storage Destination Field**: Dedicated folder picker and path box to choose exactly where the Markdown file is stored.
    - **Convert & Clear Actions**:
      - **Convert to .md**: Asynchronously processes the file without freezing the UI.
-     - **Clear All Fields**: Instantly wipes all inputs, resets dropdown to default, and clears status.
-   - **Live Status & Notification**:
-     - Real-time conversion feedback.
-     - Confirmation banner displaying the storage destination folder.
-     - Quick-access buttons: **Open Markdown File** and **Open Stored Folder**.
+     - **Clear All Fields**: Instantly wipes all inputs, resets dropdown to default, and clears st    - **Live Status & Notification**:
+      - Real-time conversion feedback.
+      - Confirmation banner displaying the storage destination folder.
+      - Quick-access buttons:
+        - **📄 Open Markdown File**: Opens the converted `.md` file in the system default text editor.
+        - **📂 Open Stored Folder**: Reveals the destination directory in File Explorer.
+        - **📤 Share .md**: Launches a dedicated modal to share the file directly to **WhatsApp** or **Microsoft Teams** (only these two options are presented), with automated clipboard synchronization for instant pasting (Ctrl+V).
+2. **Tesseract OCR Image-to-Markdown Engine**:
+   - Converts PNG, JPG, JPEG, BMP, TIFF, and WEBP images into structured Markdown documents.
+   - Intelligent Pillow image preprocessing (grayscale and contrast optimization).
+   - Extracts printed text using Tesseract OCR with automatic fallback to native Tesseract CLI.
+   - Enriches Markdown with image dimension specs and EXIF camera metadata.
+3. **Dedicated Excel Spreadsheet Engine**:
+   - Native pure-Python `.xlsx` (via `openpyxl`) and `.xls` (via `xlrd`) parsing.
+   - Transforms multi-sheet workbooks into clean GitHub Flavored Markdown (GFM) tables without failing on missing/blocked pandas dependencies.
 
 ---
 
@@ -28,11 +38,11 @@ Powered by **CustomTkinter** for a sleek modern UI and **Microsoft MarkItDown** 
 
 | Category | Formats | Processing Method |
 | :--- | :--- | :--- |
+| **Images (OCR)** | `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.webp` | **Tesseract OCR Engine** + Pillow preprocessing & EXIF extraction |
 | **PDF Documents** | `.pdf` | Structured text, tables, and heading extraction via `pdfminer` / `pdfplumber` |
-| **Word Documents** | `.docx`, `.doc` | Headings, lists, styles, and tables via `mammoth` |
-| **PowerPoint** | `.pptx`, `.ppt` | Slide text, outlines, and notes via `python-pptx` |
-| **Excel Sheets** | `.xlsx`, `.xls` | Spreadsheets converted to Markdown tables via `openpyxl` & `pandas` |
-| **Images** | `.jpg`, `.jpeg`, `.png`, `.webp` | EXIF metadata extraction and OCR parsing |
+| **Word Documents** | `.docx`, `.doc` | Modern `.docx` via `mammoth`/`markitdown`; Legacy `.doc` via 3-Tier OLE parser |
+| **PowerPoint** | `.pptx`, `.ppt` | Modern `.pptx` via `python-pptx`; Legacy `.ppt` via 3-Tier OLE parser |
+| **Excel Sheets** | `.xlsx`, `.xls` | Pure-Python tabular extraction into Markdown tables via `openpyxl` & `xlrd` |
 | **Audio Files** | `.mp3`, `.wav`, `.m4a` | Speech transcription into text and EXIF audio metadata |
 | **Video Files** | `.mp4`, `.mkv`, `.mov`, `.avi` | Audio track extraction via `moviepy` followed by speech transcription |
 | **HTML / Web** | `.html`, `.htm` | HTML parsing, DOM cleanup, and conversion via `markdownify` & `beautifulsoup4` |
@@ -45,8 +55,14 @@ Powered by **CustomTkinter** for a sleek modern UI and **Microsoft MarkItDown** 
 
 ## 🚀 How to Run the Desktop App
 
-### Prerequisites
-Make sure Python 3.10+ is installed on your system.
+### Prerequisites & Installation
+1. Install Python 3.10+ on your system.
+2. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+> 📖 **Full System Setup & Workflow Guide**: See [SETUP_AND_WORKFLOW_GUIDE.md](SETUP_AND_WORKFLOW_GUIDE.md) for cross-platform instructions (Windows, macOS, Linux), virtual environment setup, and pipeline details.
+> 🚀 **Future Roadmap & Optimizations**: See [FUTURE_UPDATES_AND_OPTIMIZATIONS.md](FUTURE_UPDATES_AND_OPTIMIZATIONS.md) for the strategic feature and performance roadmap.
 
 ### Method 1: Double-Click (Easiest)
 Simply double-click the `run.bat` file in the folder:
@@ -68,6 +84,21 @@ python app.py
 
 ---
 
+## 📤 Sharing Converted Files (WhatsApp & Microsoft Teams)
+
+When conversion finishes, click the purple **📤 Share .md** button. The Share modal provides **strictly two options**:
+
+1. **💬 WhatsApp**:
+   - Copies the complete Markdown content to your clipboard.
+   - Automatically opens WhatsApp (Desktop application `whatsapp://` or WhatsApp Web `https://web.whatsapp.com/`).
+   - Allows instant pasting (`Ctrl+V`) of the Markdown text into any chat.
+2. **👥 Microsoft Teams**:
+   - Copies the complete Markdown content to your clipboard.
+   - Automatically opens Microsoft Teams (`msteams:/` or Teams Web Share).
+   - Allows instant pasting (`Ctrl+V`) of the Markdown document into any channel or direct message.
+
+---
+
 ## ⚙️ How It Works (Architecture & Pipeline)
 
 ```
@@ -84,11 +115,11 @@ python app.py
 ┌──────────────────────────────────────────────┐
 │         converter.py (Engine)                │
 │  1. Check Source Type (URL vs File)          │
-│  2. If Video (.mp4): Extract audio via       │
-│     MoviePy -> Transcribe speech             │
-│  3. If Document/Audio/Image/ZIP:             │
-│     Process via Microsoft MarkItDown engine  │
-│  4. Fallback formatting for CSV/JSON/XML     │
+│  2. If Image: Tesseract OCR + Pillow         │
+│  3. If Excel: openpyxl / xlrd Markdown table │
+│  4. If Video: MoviePy audio -> Speech-to-Text│
+│  5. If Office/PDF: MarkItDown / OLE Parsers  │
+│  6. Fallback formatting for CSV/JSON/XML     │
 └──────────────────────┬───────────────────────┘
                        │
                        ▼
@@ -96,25 +127,9 @@ python app.py
 │           Output File Generation             │
 │  - Appends output_dir + filename.md          │
 │  - Writes UTF-8 encoded Markdown file        │
-│  - Updates GUI with Success & Folder Paths   │
+│  - Reveals: Open File, Open Folder, Share    │
 └──────────────────────────────────────────────┘
 ```
-
-1. **User Interaction**:
-   - The user selects the file type from the dropdown, chooses a file or pastes a link, names the file, and chooses the target folder.
-2. **Background Thread Execution**:
-   - Upon clicking **Convert**, `app.py` spawns a background `threading.Thread`. This prevents the Windows window from entering "Not Responding" state during long OCR or transcription tasks.
-3. **Format Engine**:
-   - `converter.py` routes the file to the appropriate parser:
-     - For video files, it uses `moviepy` to extract the sound track into a temporary audio buffer and passes it to the speech-to-text pipeline.
-     - For URLs, it fetches transcripts or parses HTML into markdown.
-     - For documents (PDF, DOCX, XLSX, PPTX), it preserves headings, bold text, lists, and tables.
-4. **Saving**:
-   - Combines the storage path and filename (`os.path.join(output_dir, filename)`), ensures the `.md` extension, and saves the file.
-5. **Notification**:
-   - The UI shows a green success banner with the complete path and reveals **Open Markdown File** and **Open Stored Folder** buttons for instant access.
-6. **Clear Action**:
-   - Clicking **Clear** wipes all inputs, resets dropdown to "All Supported Formats", and clears status.
 
 ---
 
@@ -124,11 +139,14 @@ python app.py
 | :--- | :--- |
 | **Python 3.11** | Core programming language runtime |
 | **CustomTkinter** | Modern UI framework with native dark/light styling and high-DPI scaling |
+| **Tesseract OCR & pytesseract** | Optical Character Recognition for image-to-text conversion |
+| **openpyxl & xlrd** | Pure-Python Excel spreadsheet to Markdown table converters |
 | **Microsoft MarkItDown** | State-of-the-art document conversion engine |
 | **MoviePy & imageio-ffmpeg** | Video audio stream extraction and processing |
-| **Pillow (PIL)** | Image EXIF metadata parsing and dimensional inspection |
+| **Pillow (PIL)** | Image contrast/grayscale preprocessing and EXIF parsing |
 | **BeautifulSoup4 & Markdownify** | Web and HTML page to Markdown converter |
 | **pdfplumber & pdfminer.six** | High-precision PDF layout and text parsing |
-| **Mammoth & python-pptx & openpyxl** | Microsoft Office suite (Word, PowerPoint, Excel) parsers |
+| **Mammoth & python-docx & python-pptx** | Microsoft Word and PowerPoint document parsers |
 | **SpeechRecognition & pydub** | Audio speech-to-text extraction |
 | **YouTube Transcript API** | YouTube video caption and transcript extractor |
+

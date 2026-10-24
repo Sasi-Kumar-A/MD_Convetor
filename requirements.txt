@@ -1,7 +1,7 @@
 customtkinter>=6.0.0
 markitdown[all]>=0.1.9
 moviepy>=2.0.0
-pillow>=12.2.0
+pillow>=10.0.0,<12.0.0
 requests
 beautifulsoup4
 pdfminer-six
@@ -12,3 +12,7 @@ openpyxl
 pydub
 speechrecognition
 youtube-transcript-api
+olefile>=0.46
+pytesseract>=0.3.10
+python-docx>=1.1.0
+xlrd>=2.0.1

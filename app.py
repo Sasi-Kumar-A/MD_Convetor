@@ -9,6 +9,8 @@ import os
 import sys
 import threading
 import subprocess
+import webbrowser
+import urllib.parse
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
@@ -18,6 +20,231 @@ from converter import MarkdownConverter, convert_and_save
 # Configure default appearance
 ctk.set_appearance_mode("Dark")  # "System", "Dark", "Light"
 ctk.set_default_color_theme("blue")  # "blue", "green", "dark-blue"
+
+
+class ShareModalDialog(ctk.CTkToplevel):
+    """
+    Dedicated Share Modal Dialog.
+    Strictly provides ONLY TWO options:
+    1. WhatsApp (WhatsApp Desktop / WhatsApp Web)
+    2. Microsoft Teams (Teams App / Teams Web Share)
+    """
+
+    def __init__(self, parent, file_path: str):
+        super().__init__(parent)
+        self.file_path = file_path
+        self.filename = os.path.basename(file_path)
+
+        self.title("Share Markdown File")
+        self.geometry("480, 420")
+        self.resizable(False, False)
+
+        # Modal behavior
+        self.transient(parent)
+        self.grab_set()
+
+        # Center over parent window
+        self.update_idletasks()
+        try:
+            x = parent.winfo_x() + (parent.winfo_width() // 2) - (480 // 2)
+            y = parent.winfo_y() + (parent.winfo_height() // 2) - (420 // 2)
+            self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        except Exception:
+            pass
+
+        self._build_ui()
+
+    def _build_ui(self):
+        container = ctk.CTkFrame(self, corner_radius=14, fg_color=("gray95", "#181b20"))
+        container.pack(fill="both", expand=True, padx=16, pady=16)
+
+        # Title
+        lbl_title = ctk.CTkLabel(
+            container,
+            text="📤 Share Converted Markdown",
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        lbl_title.pack(pady=(16, 4))
+
+        lbl_desc = ctk.CTkLabel(
+            container,
+            text="Choose an application to share your document:",
+            font=ctk.CTkFont(size=13),
+            text_color=("gray50", "gray65")
+        )
+        lbl_desc.pack(pady=(0, 14))
+
+        # File Info Card
+        info_card = ctk.CTkFrame(container, corner_radius=8, fg_color=("white", "#232730"))
+        info_card.pack(fill="x", padx=16, pady=(0, 18))
+
+        lbl_file = ctk.CTkLabel(
+            info_card,
+            text=f"📄 {self.filename}",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            anchor="w"
+        )
+        lbl_file.pack(fill="x", padx=14, pady=(10, 2))
+
+        try:
+            sz_kb = os.path.getsize(self.file_path) / 1024
+            sz_str = f"{sz_kb:.1f} KB"
+        except Exception:
+            sz_str = "Markdown File"
+
+        lbl_path = ctk.CTkLabel(
+            info_card,
+            text=f"Size: {sz_str} • Ready to share",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray50", "gray60"),
+            anchor="w"
+        )
+        lbl_path.pack(fill="x", padx=14, pady=(0, 10))
+
+        # ONLY TWO SHARE OPTIONS: WhatsApp and Microsoft Teams
+        btn_frame = ctk.CTkFrame(container, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=16, pady=(0, 14))
+
+        # 1. WhatsApp Button
+        self.btn_whatsapp = ctk.CTkButton(
+            btn_frame,
+            text="💬 WhatsApp",
+            command=self._share_to_whatsapp,
+            height=46,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#25D366",
+            hover_color="#1ea851",
+            text_color="white"
+        )
+        self.btn_whatsapp.pack(fill="x", pady=(0, 12))
+
+        # 2. Microsoft Teams Button
+        self.btn_teams = ctk.CTkButton(
+            btn_frame,
+            text="👥 Microsoft Teams",
+            command=self._share_to_teams,
+            height=46,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#5B5FC7",
+            hover_color="#464775",
+            text_color="white"
+        )
+        self.btn_teams.pack(fill="x", pady=(0, 14))
+
+        # Cancel / Close Button
+        btn_cancel = ctk.CTkButton(
+            container,
+            text="Cancel",
+            command=self.destroy,
+            height=32,
+            font=ctk.CTkFont(size=12),
+            fg_color=("gray80", "#2c313a"),
+            hover_color=("gray70", "#3a414e"),
+            text_color=("gray10", "white")
+        )
+        btn_cancel.pack(pady=(0, 10))
+
+    def _get_markdown_content(self) -> str:
+        """Reads the Markdown file content safely."""
+        try:
+            with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
+                return f.read()
+        except Exception:
+            return f"Markdown document: {self.filename}"
+
+    def _copy_to_clipboard(self, content: str):
+        """Copies the text to Windows / Tk system clipboard."""
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(content)
+            self.update()
+        except Exception:
+            pass
+
+    def _share_to_whatsapp(self):
+        """
+        Launches WhatsApp (App or Web) with message context
+        and copies full Markdown text to clipboard for instant pasting.
+        """
+        content = self._get_markdown_content()
+        self._copy_to_clipboard(content)
+
+        # Prepare snippet for URL parameter (under browser URL length limits)
+        preview = content.strip()[:500]
+        if len(content.strip()) > 500:
+            preview += "\n\n... *(Full Markdown content copied to your clipboard!)*"
+
+        msg = f"*Shared Markdown: {self.filename}*\n\n{preview}"
+        encoded_msg = urllib.parse.quote(msg)
+
+        opened = False
+        # Try native WhatsApp desktop protocol first
+        try:
+            os.startfile(f"whatsapp://send?text={encoded_msg}")
+            opened = True
+        except Exception:
+            pass
+
+        # Fallback to WhatsApp Web
+        if not opened:
+            try:
+                webbrowser.open(f"https://web.whatsapp.com/send?text={encoded_msg}")
+                opened = True
+            except Exception:
+                pass
+
+        messagebox.showinfo(
+            "WhatsApp",
+            f"WhatsApp has been launched!\n\n"
+            f"✓ The complete Markdown content has also been copied to your clipboard.\n"
+            f"Press Ctrl+V in your WhatsApp chat to paste the entire document."
+        )
+        self.destroy()
+
+    def _share_to_teams(self):
+        """
+        Launches Microsoft Teams with message context
+        and copies full Markdown text to clipboard for instant pasting.
+        """
+        content = self._get_markdown_content()
+        self._copy_to_clipboard(content)
+
+        preview = content.strip()[:500]
+        if len(content.strip()) > 500:
+            preview += "\n\n... *(Full Markdown content copied to your clipboard!)*"
+
+        msg = f"Shared Markdown: {self.filename}\n\n{preview}"
+        encoded_msg = urllib.parse.quote(msg)
+
+        opened = False
+        # Try native Microsoft Teams desktop protocol
+        try:
+            os.startfile(f"msteams:/l/chat/0/0?users=&message={encoded_msg}")
+            opened = True
+        except Exception:
+            pass
+
+        # Fallback to Microsoft Teams Web Share link
+        if not opened:
+            try:
+                webbrowser.open(f"https://teams.microsoft.com/share?msgText={encoded_msg}")
+                opened = True
+            except Exception:
+                pass
+
+        if not opened:
+            try:
+                webbrowser.open("https://teams.microsoft.com/")
+            except Exception:
+                pass
+
+        messagebox.showinfo(
+            "Microsoft Teams",
+            f"Microsoft Teams has been launched!\n\n"
+            f"✓ The complete Markdown content has also been copied to your clipboard.\n"
+            f"Press Ctrl+V in your Teams chat or channel to paste the entire document."
+        )
+        self.destroy()
 
 
 class MarkdownConverterApp(ctk.CTk):
@@ -294,6 +521,17 @@ class MarkdownConverterApp(ctk.CTk):
             hover_color=("gray65", "#4b5563")
         )
 
+        self.btn_share = ctk.CTkButton(
+            self.shortcuts_row,
+            text="📤 Share .md",
+            command=self._open_share_dialog,
+            width=150,
+            height=32,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=("#8b5cf6", "#7c3aed"),
+            hover_color=("#7c3aed", "#6d28d9")
+        )
+
     # ----------------- EVENT HANDLERS & LOGIC -----------------
 
     def _on_format_changed(self, choice: str):
@@ -376,6 +614,7 @@ class MarkdownConverterApp(ctk.CTk):
         self.progress_bar.set(0)
         self.btn_open_file.pack_forget()
         self.btn_open_folder.pack_forget()
+        self.btn_share.pack_forget()
         self.last_converted_file = ""
         self.last_output_dir = ""
 
@@ -420,6 +659,7 @@ class MarkdownConverterApp(ctk.CTk):
 
         self.btn_open_file.pack_forget()
         self.btn_open_folder.pack_forget()
+        self.btn_share.pack_forget()
 
         self.progress_bar.configure(mode="indeterminate")
         self.progress_bar.start()
@@ -476,9 +716,10 @@ class MarkdownConverterApp(ctk.CTk):
                 text_color=("#059669", "#34d399")
             )
 
-            # Show quick access buttons
-            self.btn_open_file.pack(side="left", padx=8)
-            self.btn_open_folder.pack(side="left", padx=8)
+            # Show quick access buttons (Open File, Open Folder, Share)
+            self.btn_open_file.pack(side="left", padx=6)
+            self.btn_open_folder.pack(side="left", padx=6)
+            self.btn_share.pack(side="left", padx=6)
 
         else:
             self.progress_bar.set(0)
@@ -504,6 +745,18 @@ class MarkdownConverterApp(ctk.CTk):
                 os.startfile(target_dir)
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open directory: {e}")
+
+    def _open_share_dialog(self):
+        """Opens the Share Dialog with only WhatsApp and Microsoft Teams."""
+        target_file = self.last_converted_file
+        if not target_file or not os.path.exists(target_file):
+            messagebox.showwarning(
+                "No File to Share",
+                "Please convert a file first or make sure the converted .md file exists."
+            )
+            return
+
+        ShareModalDialog(self, file_path=target_file)
 
     def _change_theme(self, choice: str):
         """Changes theme between Dark, Light, and System."""
